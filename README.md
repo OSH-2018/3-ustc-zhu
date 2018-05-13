@@ -65,5 +65,5 @@ static int my_malloc(void)
 
 ### 测试结果
 
-![](.\result.png)
+![](./result.png)
 
