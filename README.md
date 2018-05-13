@@ -62,3 +62,8 @@ static int my_malloc(void)
 ```
 
 我采用了最为朴素的算法。就是从头开始遍历mem数组，找到第一个还未分配的mem，将其分配。
+
+### 测试结果
+
+![](.\result.png)
+
