@@ -55,6 +55,11 @@ static int my_malloc(void)
             mem[i] = mmap(NULL, blocksize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             root->mem_flag[i] = 1;
             root->block_left--;
+
+            #ifdef debug
+            printf("block_left = %d\n", root->block_left);
+            #endif
+
             break;                                               //find an available block,then break
     	}
     }
@@ -78,9 +83,11 @@ static int my_realloc(struct filenode* node,int new_pieces)
     printf("this is my_realloc\n");
     #endif
 
-    if (new_pieces < node->pieces)
+    int pre_pieces = node->pieces;
+
+    if (new_pieces < pre_pieces)
     {
-    	for (int i = new_pieces; i < node->pieces; ++i)
+    	for (int i = new_pieces; i < pre_pieces; ++i)
     	{
     		my_free(node->content[i]);
     		node->pieces--;
@@ -93,9 +100,10 @@ static int my_realloc(struct filenode* node,int new_pieces)
     		return -1;
    		else
     	{
-    		for (int i = node->pieces; i < new_pieces; ++i)
+    		for (int i = pre_pieces; i < new_pieces; ++i)
     		{
     			node->content[i] = my_malloc();
+                node->pieces++;
     		}
     		return 1;
    		}
@@ -112,7 +120,10 @@ static struct filenode *get_filenode(const char *name)
     struct filenode *node = root->next;
     while(node)
     {
+        #ifdef debug
         printf("%p\n", node);
+        #endif
+
         if(strcmp(node->filename, name + 1) != 0)
             node = node->next;
         else
@@ -159,7 +170,7 @@ static void *oshfs_init(struct fuse_conn_info *conn)
         root->mem_flag[i] = 0;
     
 
-    for(int i = 1; i < blocknr; i++)
+    /*for(int i = 1; i < blocknr; i++)
     {
         mem[i] = (char *)mem[0] + blocksize * i;
         memset(mem[i], 0, blocksize);
@@ -167,6 +178,7 @@ static void *oshfs_init(struct fuse_conn_info *conn)
     //每一个mem的起始地址的设置
     for(int i = 1; i < blocknr; i++)
         munmap(mem[i], blocksize);
+    */
     return NULL;
 }
 
@@ -247,6 +259,12 @@ static int oshfs_write(const char *path, const char *buf, size_t size, off_t off
     new_pieces = (node->st.st_size % blocksize) ? ((int)node->st.st_size / blocksize + 1) : ((int)node->st.st_size / blocksize);
     success = my_realloc(node, new_pieces);          
     node->pieces = new_pieces;
+
+    #ifdef debug
+    printf("block_left = %d\n", root->block_left);
+    printf("in oshfs_write the new_pieces is = %d\n", new_pieces);
+    #endif
+
     if (success != -1)
     {
         #ifdef debug
@@ -268,17 +286,25 @@ static int oshfs_write(const char *path, const char *buf, size_t size, off_t off
             if(i == 0)
             {
         	    copy_size = blocksize - new_offset;
-        	    memcpy(mem[node->content[offset_block + i]] + new_offset, buf + buf_add, copy_size);                  
+        	    memcpy(mem[node->content[offset_block + i]] + new_offset, buf + buf_add, copy_size);
+                
+                #ifdef debug                  
                 printf("%s\n", (char*)mem[node->content[offset_block + i]]);
-        	    buf_add += copy_size;
+        	    #endif
+
+                buf_add += copy_size;
             }
             else
             {
             	if((size - buf_add) > blocksize)	copy_size = blocksize;
             	else	copy_size = size - buf_add;
-             	memcpy(mem[node->content[offset_block + i]], buf + buf_add, copy_size);                  
+             	memcpy(mem[node->content[offset_block + i]], buf + buf_add, copy_size);
+
+                #ifdef debug                  
                 printf("%s\n", (char*)mem[node->content[offset_block + i]]);
-        	    buf_add += copy_size;
+        	    #endif
+
+                buf_add += copy_size;
             }
             i++;
         }
@@ -298,7 +324,12 @@ static int oshfs_truncate(const char *path, off_t size)
     struct filenode *node = get_filenode(path);             
     node->st.st_size = size;                               
     int new_pieces = (node->st.st_size % blocksize) ? ((int)node->st.st_size / blocksize + 1) : ((int)node->st.st_size / blocksize);
-    success = my_realloc(node, new_pieces);           
+    success = my_realloc(node, new_pieces);
+
+    #ifdef debug
+    printf("in oshfs_truncate the new_pieces is = %d\n", new_pieces);           
+    #endif
+    
     if(success != -1){
         node->pieces = new_pieces;
         return 0;
@@ -362,6 +393,10 @@ static int oshfs_unlink(const char *path)
         node1->next=NULL;
         for (int i = 0; i < node1->pieces; ++i)	my_free(node1->content[i]);
     	my_free(node1->logic_addr);
+        
+        #ifdef debug
+        printf("after rm block_left = %d\n", root->block_left);
+        #endif
     	return 0;    
     }
     else if (node1)                         
@@ -371,7 +406,12 @@ static int oshfs_unlink(const char *path)
         node2->next = node1->next;
         node1->next = NULL;
     	for (int i = 0; i < node1->pieces; ++i)	my_free(node1->content[i]);
-    	my_free(node1->logic_addr);  
+    	my_free(node1->logic_addr);
+
+        #ifdef debug
+        printf("after rm block_left = %d\n", root->block_left);
+        #endif
+
     	return 0;      
     }
 
