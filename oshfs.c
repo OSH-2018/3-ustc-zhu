@@ -339,7 +339,6 @@ static int oshfs_truncate(const char *path, off_t size)
 }
 
 static int oshfs_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi)
-//从一个已经打开的文件中读出数据
 {
     #ifdef debug
     printf("this is oshfs_read\n");
@@ -362,17 +361,25 @@ static int oshfs_read(const char *path, char *buf, size_t size, off_t offset, st
      	    //copy_size = blocksize - new_offset;
      	    if((ret - buf_add) > blocksize)	copy_size = blocksize - new_offset;
           	else	copy_size = ret - buf_add;
-     	    memcpy(buf + buf_add, mem[node->content[offset_block + i]] + new_offset, copy_size);           
+     	    memcpy(buf + buf_add, mem[node->content[offset_block + i]] + new_offset, copy_size);  
+           
+            #ifdef debug         
             printf("%s\n", (char*)mem[node->content[offset_block + i]]);
-      	    buf_add += copy_size;
+      	    #endif
+
+            buf_add += copy_size;
         }
         else
         {
         	if((ret - buf_add) > blocksize)	copy_size = blocksize;
           	else	copy_size = ret - buf_add;
           	memcpy(buf + buf_add, mem[node->content[offset_block + i]], copy_size);                 
+          
+            #ifdef debug
             printf("%s\n", (char*)mem[node->content[offset_block + i]]);
-      	    buf_add += copy_size;
+      	    #endif
+          
+            buf_add += copy_size;
         }
         i++;
     }   
